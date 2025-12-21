@@ -619,3 +619,53 @@ class YouTubeService:
         filename = filename.strip()
         return filename
 
+    def extract_video_info(self, url_or_id: str) -> Dict:
+        """Extract YouTube video metadata (no download).
+
+        Accepts a YouTube/YouTube Music URL or a raw video id.
+        """
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'noplaylist': True,
+            'skip_download': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web', 'ios'],
+                }
+            },
+        }
+
+        # Build a canonical URL if a bare ID was provided
+        url = url_or_id
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", (url_or_id or "")):
+            url = f"https://www.youtube.com/watch?v={url_or_id}"
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+
+            thumbnails = info.get('thumbnails') or []
+            thumb_url = ''
+            if isinstance(thumbnails, list) and thumbnails:
+                # Pick the last (usually highest res)
+                thumb_url = (thumbnails[-1] or {}).get('url') or ''
+            if not thumb_url:
+                thumb_url = info.get('thumbnail') or ''
+
+            return {
+                'success': True,
+                'video_id': info.get('id') or '',
+                'title': info.get('title') or '',
+                'uploader': info.get('uploader') or info.get('channel') or '',
+                'duration': info.get('duration') or 0,
+                'webpage_url': info.get('webpage_url') or url,
+                'thumbnail': thumb_url,
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+            }
+
