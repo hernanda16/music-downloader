@@ -79,11 +79,15 @@ class DownloadRequest(BaseModel):
     track_id: str
     location: Optional[str] = "local"  # 'local' or 'navidrome'
     video_id: Optional[str] = None  # YouTube video ID if user selected a specific candidate
+    format: Optional[str] = None  # Audio format (mp3, m4a, opus, ogg, flac)
+    quality: Optional[str] = None  # Audio quality/bitrate (e.g., "128", "192", "256", "320")
 
 
 class AlbumDownloadRequest(BaseModel):
     album_id: str
     location: Optional[str] = "local"  # 'local' or 'navidrome'
+    format: Optional[str] = None  # Audio format (mp3, m4a, opus, ogg, flac)
+    quality: Optional[str] = None  # Audio quality/bitrate (e.g., "128", "192", "256", "320")
 
 
 class ReverseLookupRequest(BaseModel):
@@ -117,8 +121,12 @@ class DownloadStatusResponse(BaseModel):
     file_path: Optional[str] = None
 
 
-def download_and_process(track_id: str, location: str = "local", video_id: str = None):
+def download_and_process(track_id: str, location: str = "local", video_id: str = None, output_format: str = None, audio_quality: str = None):
     """Background task to download and process a track"""
+    # Use provided format/quality or fall back to config defaults
+    output_format = output_format or config.OUTPUT_FORMAT
+    audio_quality = audio_quality or config.AUDIO_QUALITY
+    
     try:
         upsert_job(
             track_id,
@@ -147,14 +155,14 @@ def download_and_process(track_id: str, location: str = "local", video_id: str =
             # First download to temp location, then copy to Navidrome directory
             temp_dir = os.path.join(config.DOWNLOAD_DIR, "temp")
             Path(temp_dir).mkdir(parents=True, exist_ok=True)
-            download_path = get_download_path(track_info, temp_dir, config.OUTPUT_FORMAT)
+            download_path = get_download_path(track_info, temp_dir, output_format)
             print(f"Downloading track {track_id} for Navidrome: {download_path}")
         else:
             # For local downloads: download to temp folder, then serve via browser download
             # This allows each user's browser to save to their own Downloads folder
             temp_dir = os.path.join(config.DOWNLOAD_DIR, "temp")
             Path(temp_dir).mkdir(parents=True, exist_ok=True)
-            download_path = get_download_path(track_info, temp_dir, config.OUTPUT_FORMAT)
+            download_path = get_download_path(track_info, temp_dir, output_format)
             print(f"Downloading track {track_id} for local browser download: {download_path}")
 
         upsert_job(track_id,
@@ -170,7 +178,9 @@ def download_and_process(track_id: str, location: str = "local", video_id: str =
             track_info['artist'],
             download_path,
             track_info,  # Pass full track info for validation
-            video_id  # Specific YouTube video if user selected one
+            video_id,  # Specific YouTube video if user selected one
+            output_format,  # User-selected format
+            audio_quality  # User-selected quality
         )
 
         if not download_result.get("success"):
@@ -398,8 +408,8 @@ async def download_track(request: DownloadRequest, background_tasks: BackgroundT
                stage="queued"
                )
 
-    # Add background task with location and video_id parameters
-    background_tasks.add_task(download_and_process, request.track_id, request.location, request.video_id)
+    # Add background task with location, video_id, format, and quality parameters
+    background_tasks.add_task(download_and_process, request.track_id, request.location, request.video_id, request.format, request.quality)
 
     return {
         "status": "queued",
@@ -783,6 +793,29 @@ async def check_track_exists(track_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking track: {str(e)}")
 
+
+@app.get("/api/formats")
+async def get_available_formats():
+    """Get available audio formats and quality options"""
+    return {
+        "formats": [
+            {"value": "mp3", "label": "MP3", "description": "Compatible with most devices"},
+            {"value": "m4a", "label": "M4A/AAC", "description": "Better quality, smaller files"},
+            {"value": "opus", "label": "Opus", "description": "High quality, efficient compression"},
+            {"value": "ogg", "label": "OGG Vorbis", "description": "Open source format"},
+            {"value": "flac", "label": "FLAC", "description": "Lossless, larger files"}
+        ],
+        "qualities": [
+            {"value": "96", "label": "96 kbps", "description": "Low quality, small files"},
+            {"value": "128", "label": "128 kbps", "description": "Standard quality (default)"},
+            {"value": "192", "label": "192 kbps", "description": "Good quality"},
+            {"value": "256", "label": "256 kbps", "description": "High quality"},
+            {"value": "320", "label": "320 kbps", "description": "Maximum quality"},
+            {"value": "lossless", "label": "Lossless", "description": "FLAC only - no quality loss"}
+        ],
+        "default_format": config.OUTPUT_FORMAT,
+        "default_quality": config.AUDIO_QUALITY
+    }
 
 @app.get("/api/health")
 async def health_check():
