@@ -99,8 +99,10 @@ class SpotifyService:
         try:
             album = self.client.album(album_id)
             
-            # Get all tracks from the album
+            # Get all tracks from the album (handle pagination for albums with >50 tracks)
             tracks = []
+            
+            # Process first page of tracks
             for item in album['tracks']['items']:
                 track = {
                     'id': item['id'],
@@ -117,6 +119,47 @@ class SpotifyService:
                     'release_date': album.get('release_date', '')
                 }
                 tracks.append(track)
+            
+            # Handle pagination - Spotify API returns max 50 tracks per page
+            # Continue fetching tracks until we have all of them
+            offset = len(tracks)  # Start from where we left off
+            
+            # Fetch additional pages if there are more tracks (check if 'next' exists in first page)
+            if album['tracks'].get('next'):
+                while True:
+                    # Fetch next page of tracks using album_tracks method with offset
+                    next_page = self.client.album_tracks(album_id, limit=50, offset=offset)
+                    
+                    if not next_page['items']:
+                        break
+                    
+                    for item in next_page['items']:
+                        track = {
+                            'id': item['id'],
+                            'name': item['name'],
+                            'artists': [artist['name'] for artist in item['artists']],
+                            'artist': ', '.join([artist['name'] for artist in item['artists']]),
+                            'album': album['name'],
+                            'album_id': album['id'],
+                            'duration_ms': item['duration_ms'],
+                            'track_number': item['track_number'],
+                            'external_url': item['external_urls']['spotify'],
+                            'preview_url': item.get('preview_url'),
+                            'album_art': album['images'][0]['url'] if album['images'] else None,
+                            'release_date': album.get('release_date', '')
+                        }
+                        tracks.append(track)
+                    
+                    # Check if there are more tracks to fetch
+                    if not next_page.get('next'):
+                        break
+                    
+                    offset += 50
+                    
+                    # Safety check to prevent infinite loops (max 1000 tracks should be enough)
+                    if offset >= 1000:
+                        print(f"Warning: Stopped pagination at 1000 tracks for album {album_id}")
+                        break
             
             return {
                 'id': album['id'],
