@@ -99,6 +99,14 @@ header h1 {
     color: white;
 }
 
+.download-options {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
 .download-option {
     display: flex;
     align-items: center;

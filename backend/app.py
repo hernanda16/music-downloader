@@ -628,7 +628,14 @@ async def download_album(request: AlbumDownloadRequest, background_tasks: Backgr
                    stage="queued",
                    album_id=request.album_id
                    )
-        background_tasks.add_task(download_album_track, track['id'], location, request.album_id)
+        background_tasks.add_task(
+            download_album_track, 
+            track['id'], 
+            location, 
+            request.album_id,
+            request.format,
+            request.quality
+        )
 
     return {
         "status": "queued",
@@ -638,9 +645,9 @@ async def download_album(request: AlbumDownloadRequest, background_tasks: Backgr
     }
 
 
-def download_album_track(track_id: str, location: str, album_id: str):
+def download_album_track(track_id: str, location: str, album_id: str, output_format: str = None, audio_quality: str = None):
     try:
-        download_and_process(track_id, location, None)
+        download_and_process(track_id, location, None, output_format, audio_quality)
     except Exception as e:
         print(f"Error downloading album track {track_id}: {e}")
 

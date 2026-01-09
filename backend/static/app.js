@@ -15,6 +15,97 @@ const activeDownloads = new Map();
 // Search type: 'tracks' or 'albums'
 let searchType = 'tracks';
 
+// Format and quality options (loaded on page init)
+let availableFormats = [];
+let availableQualities = [];
+let defaultFormat = 'mp3';
+let defaultQuality = '128';
+
+// DOM elements for format/quality (will be set when DOM is ready)
+let audioFormatSelect;
+let audioQualitySelect;
+
+// Load available formats and qualities on page load
+async function loadFormatOptions() {
+    // Get elements fresh each time in case DOM wasn't ready
+    audioFormatSelect = document.getElementById('audioFormat');
+    audioQualitySelect = document.getElementById('audioQuality');
+    
+    if (!audioFormatSelect || !audioQualitySelect) {
+        console.error('Format/Quality select elements not found. Retrying in 100ms...');
+        setTimeout(loadFormatOptions, 100);
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/formats');
+        if (response.ok) {
+            const data = await response.json();
+            availableFormats = data.formats || [];
+            availableQualities = data.qualities || [];
+            defaultFormat = data.default_format || 'mp3';
+            defaultQuality = data.default_quality || '128';
+            
+            // Populate format dropdown
+            audioFormatSelect.innerHTML = availableFormats.map(fmt => 
+                `<option value="${fmt.value}" ${fmt.value === defaultFormat ? 'selected' : ''}>${fmt.label} - ${fmt.description}</option>`
+            ).join('');
+            
+            // Populate quality dropdown based on default format
+            updateQualityOptions(defaultFormat);
+            
+            // Update quality options when format changes
+            audioFormatSelect.addEventListener('change', (e) => {
+                updateQualityOptions(e.target.value);
+            });
+        } else {
+            const errorText = await response.text();
+            console.error('Failed to load format options:', response.status, errorText);
+            // Fallback to basic options
+            audioFormatSelect.innerHTML = '<option value="mp3">MP3</option>';
+            audioQualitySelect.innerHTML = '<option value="128">128 kbps</option>';
+        }
+    } catch (err) {
+        console.error('Error loading format options:', err);
+        // Fallback to basic options
+        if (audioFormatSelect) audioFormatSelect.innerHTML = '<option value="mp3">MP3</option>';
+        if (audioQualitySelect) audioQualitySelect.innerHTML = '<option value="128">128 kbps</option>';
+    }
+}
+
+// Function to update quality options based on selected format
+function updateQualityOptions(selectedFormat) {
+    if (!audioQualitySelect) {
+        audioQualitySelect = document.getElementById('audioQuality');
+        if (!audioQualitySelect) return;
+    }
+    
+    if (selectedFormat === 'flac') {
+        // FLAC is lossless, only show lossless option
+        audioQualitySelect.innerHTML = '<option value="lossless" selected>Lossless - No quality loss</option>';
+    } else {
+        // For lossy formats, show all quality options
+        const currentQuality = audioQualitySelect.value || defaultQuality;
+        audioQualitySelect.innerHTML = availableQualities
+            .filter(qual => qual.value !== 'lossless') // Hide lossless for non-FLAC formats
+            .map(qual => 
+                `<option value="${qual.value}" ${qual.value === currentQuality ? 'selected' : ''}>${qual.label} - ${qual.description}</option>`
+            ).join('');
+    }
+}
+
+// Initialize on page load (wait for DOM to be ready)
+function initializeFormatOptions() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadFormatOptions);
+    } else {
+        // DOM is already ready, but wait a bit to ensure elements exist
+        setTimeout(loadFormatOptions, 50);
+    }
+}
+
+initializeFormatOptions();
+
 // Event listeners
 searchBtn.addEventListener('click', handleSearch);
 searchInput.addEventListener('keypress', (e) => {
@@ -437,6 +528,12 @@ async function downloadTrack(track, selectedVideoId = null) {
         showDownloadStatus();
         addStatusItem(trackId, track, 'queued', 'Download queued...', 0);
         
+        // Get format and quality preferences
+        const formatSelect = document.getElementById('audioFormat');
+        const qualitySelect = document.getElementById('audioQuality');
+        const format = (formatSelect && formatSelect.value) ? formatSelect.value : defaultFormat;
+        const quality = (qualitySelect && qualitySelect.value) ? qualitySelect.value : defaultQuality;
+        
         // Start download
         const response = await fetch(`api/download`, {
             method: 'POST',
@@ -446,7 +543,9 @@ async function downloadTrack(track, selectedVideoId = null) {
             body: JSON.stringify({ 
                 track_id: trackId,
                 location: downloadLocation,
-                video_id: selectedVideoId  // Pass selected video ID if any
+                video_id: selectedVideoId,  // Pass selected video ID if any
+                format: format,  // User-selected format
+                quality: quality  // User-selected quality
             }),
         });
         
@@ -901,6 +1000,10 @@ async function downloadAlbum() {
     if (!currentAlbum) return;
     
     const downloadLocation = document.getElementById('downloadLocation').value;
+    const formatSelect = document.getElementById('audioFormat');
+    const qualitySelect = document.getElementById('audioQuality');
+    const format = (formatSelect && formatSelect.value) ? formatSelect.value : defaultFormat;
+    const quality = (qualitySelect && qualitySelect.value) ? qualitySelect.value : defaultQuality;
     
     try {
         const response = await fetch(`api/download/album`, {
@@ -908,7 +1011,9 @@ async function downloadAlbum() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 album_id: currentAlbum.id,
-                location: downloadLocation
+                location: downloadLocation,
+                format: format,
+                quality: quality
             })
         });
         
