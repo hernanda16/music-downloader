@@ -361,10 +361,13 @@ class YouTubeService:
             'threshold': CONFIDENCE_THRESHOLD
         }
     
-    def download_by_video_id(self, video_id: str, output_path: str) -> Dict:
+    def download_by_video_id(self, video_id: str, output_path: str, output_format: str = None, audio_quality: str = None) -> Dict:
         """Download a specific YouTube video by ID"""
+        output_format = output_format or self.output_format
+        audio_quality = audio_quality or self.audio_quality
+        
         output_path = os.path.abspath(output_path)
-        base_path = output_path.replace(f'.{self.output_format}', '')
+        base_path = output_path.replace(f'.{output_format}', '')
 
         # If the user wants m4a and YouTube provides it as itag 140 (m4a/aac),
         # keep the original container by skipping FFmpegExtractAudio.
@@ -428,13 +431,13 @@ class YouTubeService:
                 # If m4a output requested, and the selected format is itag 140,
                 # the downloaded file will already be .m4a.
                 # Find the downloaded file
-                expected_path = f"{base_path}.m4a" if wants_m4a_passthrough else f"{base_path}.{self.output_format}"
+                expected_path = f"{base_path}.m4a" if wants_m4a_passthrough else f"{base_path}.{output_format}"
                 if os.path.exists(expected_path):
                     actual_path = expected_path
                 else:
                     # Check other extensions
                     actual_path = None
-                    for ext in ['m4a', 'webm', 'opus', self.output_format]:
+                    for ext in ['m4a', 'webm', 'opus', output_format]:
                         test_path = f"{base_path}.{ext}"
                         if os.path.exists(test_path):
                             actual_path = test_path
@@ -460,12 +463,14 @@ class YouTubeService:
                 'error': error_msg
             }
     
-    def search_and_download(self, track_name: str, artist: str, output_path: str, track_info: Dict = None, video_id: str = None) -> Dict:
+    def search_and_download(self, track_name: str, artist: str, output_path: str, track_info: Dict = None, video_id: str = None, output_format: str = None, audio_quality: str = None) -> Dict:
         """Search YouTube for a track and download it. If video_id is provided, download that specific video."""
+        output_format = output_format or self.output_format
+        audio_quality = audio_quality or self.audio_quality
         
         # If a specific video_id is provided, download it directly
         if video_id:
-            return self.download_by_video_id(video_id, output_path)
+            return self.download_by_video_id(video_id, output_path, output_format, audio_quality)
         
         # Try to find the best candidate using our search logic (YTMusic with yt-dlp fallback)
         # This ensures album downloads and auto-downloads use the best available source
@@ -490,11 +495,11 @@ class YouTubeService:
         
         # Convert to absolute path to avoid filesystem issues
         output_path = os.path.abspath(output_path)
-        base_path = output_path.replace(f'.{self.output_format}', '')
+        base_path = output_path.replace(f'.{output_format}', '')
         
         # If the user wants m4a and YouTube provides it as itag 140 (m4a/aac),
         # keep the original container by skipping FFmpegExtractAudio.
-        wants_m4a_passthrough = (self.output_format or '').lower() == 'm4a'
+        wants_m4a_passthrough = (output_format or '').lower() == 'm4a'
 
         ydl_opts = {
             'format': 'bestaudio[ext=m4a]/bestaudio/best[height<=720]/best',
