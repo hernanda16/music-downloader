@@ -22,11 +22,21 @@ class YouTubeService:
     def __init__(self):
         self.output_format = config.OUTPUT_FORMAT
         self.audio_quality = config.AUDIO_QUALITY
+        self.cookies_path = config.YOUTUBE_COOKIES_PATH
         try:
             self.ytmusic = YTMusic()
         except Exception as e:
             print(f"Failed to initialize YTMusic: {e}")
             self.ytmusic = None
+    
+    def _add_cookies_to_opts(self, ydl_opts: Dict) -> Dict:
+        """Add cookies to yt-dlp options if configured."""
+        if self.cookies_path and os.path.exists(self.cookies_path):
+            ydl_opts['cookiefile'] = self.cookies_path
+            print(f"Using YouTube cookies from: {self.cookies_path}")
+        elif self.cookies_path:
+            print(f"Warning: Cookie file specified but not found: {self.cookies_path}")
+        return ydl_opts
     
     def calculate_similarity(self, str1: str, str2: str) -> float:
         """Calculate similarity between two strings using SequenceMatcher."""
@@ -297,6 +307,7 @@ class YouTubeService:
                 'default_search': f'ytsearch{num_results}',
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
+            ydl_opts = self._add_cookies_to_opts(ydl_opts)
 
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -422,6 +433,8 @@ class YouTubeService:
                     '-ac', '2',
                 ]
             }
+        
+        ydl_opts = self._add_cookies_to_opts(ydl_opts)
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -558,6 +571,8 @@ class YouTubeService:
                 ]
             }
         
+        ydl_opts = self._add_cookies_to_opts(ydl_opts)
+        
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # Search and download in one step (faster)
@@ -691,6 +706,7 @@ class YouTubeService:
                 }
             },
         }
+        ydl_opts = self._add_cookies_to_opts(ydl_opts)
 
         # Build a canonical URL if a bare ID was provided
         url = url_or_id

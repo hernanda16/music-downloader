@@ -243,6 +243,40 @@ music-downloader/
 - Check your internet connection
 - Some videos may be region-locked or unavailable
 
+### YouTube Bot Detection ("Sign in to confirm you're not a bot")
+
+If you see errors like "Sign in to confirm you're not a bot", YouTube is blocking automated requests. You can bypass this by using YouTube cookies:
+
+1. **Export cookies from your browser:**
+   - Install a browser extension like "Get cookies.txt LOCALLY" (Chrome/Firefox)
+   - Visit youtube.com and log in
+   - Export cookies in Netscape format to a file (e.g., `youtube_cookies.txt`)
+
+2. **For Docker:**
+   - Mount the cookies file in `docker-compose.yml`:
+     ```yaml
+     volumes:
+       - /path/to/youtube_cookies.txt:/app/youtube_cookies.txt:ro
+     ```
+   - Set environment variable:
+     ```yaml
+     environment:
+       - YOUTUBE_COOKIES_PATH=/app/youtube_cookies.txt
+     ```
+
+3. **For manual installation:**
+   - Add to `backend/.env`:
+     ```env
+     YOUTUBE_COOKIES_PATH=/path/to/youtube_cookies.txt
+     ```
+
+**Alternative:** Use yt-dlp to export cookies:
+```bash
+yt-dlp --cookies-from-browser chrome --cookies youtube_cookies.txt "https://www.youtube.com"
+```
+
+**Note:** Cookies expire periodically. Re-export them if downloads start failing again.
+
 ### Navidrome Upload Fails
 
 - Verify `NAVIDROME_MUSIC_PATH` is correct and writable

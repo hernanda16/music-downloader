@@ -61,6 +61,11 @@ NAVIDROME_PASSWORD=your_password
 OUTPUT_FORMAT=mp3
 AUDIO_QUALITY=128
 
+# YouTube Configuration (optional)
+# Path to YouTube cookies file for bypassing bot detection
+# See "YouTube Cookies Setup" section below for instructions
+# YOUTUBE_COOKIES_PATH=/app/youtube_cookies.txt
+
 # API Configuration
 API_HOST=0.0.0.0
 API_PORT=8000
@@ -72,6 +77,41 @@ CORS_ORIGINS=http://localhost:8000
 The docker-compose.yml mounts:
 - **Navidrome music directory**: Maps your host Navidrome music folder to `/music` in the container
 - **Downloads directory**: Maps `./downloads` for temporary files (optional but recommended)
+- **YouTube cookies file**: Optional, for bypassing YouTube bot detection (see below)
+
+### YouTube Cookies Setup
+
+If you encounter "Sign in to confirm you're not a bot" errors, you can use YouTube cookies to authenticate:
+
+1. **Export cookies from your browser:**
+   - Install a browser extension like "Get cookies.txt LOCALLY" (Chrome/Firefox)
+   - Visit youtube.com and log in
+   - Export cookies in Netscape format to a file (e.g., `youtube_cookies.txt`)
+
+2. **Mount the cookies file in docker-compose.yml:**
+   ```yaml
+   volumes:
+     - /path/to/youtube_cookies.txt:/app/youtube_cookies.txt:ro
+   ```
+
+3. **Set the environment variable in docker-compose.yml:**
+   ```yaml
+   environment:
+     - YOUTUBE_COOKIES_PATH=/app/youtube_cookies.txt
+   ```
+
+4. **Or set it in backend/.env:**
+   ```env
+   YOUTUBE_COOKIES_PATH=/app/youtube_cookies.txt
+   ```
+
+**Alternative method using yt-dlp:**
+```bash
+# Export cookies directly using yt-dlp
+yt-dlp --cookies-from-browser chrome --cookies youtube_cookies.txt "https://www.youtube.com"
+```
+
+**Note:** Cookies expire periodically. You may need to re-export them if downloads start failing again.
 
 ### Navidrome Integration
 
