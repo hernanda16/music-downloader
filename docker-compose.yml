@@ -7,6 +7,8 @@ services:
       dockerfile: Dockerfile
     container_name: music-downloader
     restart: unless-stopped
+    expose:
+      - "8000"
     ports:
       - "8000:8000"
     env_file:
@@ -14,9 +16,9 @@ services:
     volumes:
       # Mount Navidrome music directory (REQUIRED: Change to your actual Navidrome music path)
       # Example: - /path/to/navidrome/music:/music:rw
-      - ./navidrome-music:/music:rw
+      - /mnt/data/navidrome/music:/music:rw
       # Mount downloads directory for temp files (optional, for persistence)
-      - ./downloads:/app/downloads:rw
+      - /mnt/data/downloads:/app/downloads:rw
       # Mount YouTube cookies file (optional, for bypassing bot detection)
       # Uncomment and set path to your cookies file:
       # - /path/to/youtube_cookies.txt:/app/youtube_cookies.txt:ro
@@ -33,6 +35,16 @@ services:
     # Uncomment if Navidrome is on Linux host (may need 172.17.0.1 instead of host.docker.internal)
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - '--spider'
+        - '--quiet'
+        - 'http://127.0.0.1:8000/ping'
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - music-network
 
