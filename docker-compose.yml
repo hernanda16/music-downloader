@@ -8,9 +8,9 @@ services:
     container_name: music-downloader
     restart: unless-stopped
     expose:
-      - "8000"
+      - "8100"
     ports:
-      - "8000:8000"
+      - "8100:8000"
     env_file:
       - backend/.env
     volumes:
@@ -24,7 +24,7 @@ services:
       # - /path/to/youtube_cookies.txt:/app/youtube_cookies.txt:ro
     environment:
       - API_HOST=0.0.0.0
-      - API_PORT=8000
+      - API_PORT=8100
       - NAVIDROME_MUSIC_PATH=/music
       # If Navidrome is running in another container, use service name
       # If running on host, use host.docker.internal (or 172.17.0.1 on Linux)
@@ -41,7 +41,7 @@ services:
         - wget
         - '--spider'
         - '--quiet'
-        - 'http://127.0.0.1:8000/ping'
+        - 'http://127.0.0.1:8100/ping'
       interval: 10s
       timeout: 5s
       retries: 5
